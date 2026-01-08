@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 @Repository
@@ -18,4 +19,11 @@ public interface DocumentChunkRepository extends JpaRepository<DocumentChunck, U
                     "VALUES (gen_random_uuid(), :content, cast(:embedding as vector), :documentId)",
         nativeQuery = true)
     void saveVector(String content, String embedding, Long documentId);
+
+    @Query(value = """
+            SELECT * FROM document_chunks
+            ORDER BY embedding <=> cast(:queryVector as vector)
+            LIMIT 5
+            """, nativeQuery = true)
+    List<DocumentChunck> findSimilarChunks(String queryVector);
 }
