@@ -27,51 +27,77 @@ public class DocumentService{
 
     public String uploadDocument(MultipartFile file) throws IOException {
 
+        Document doc =createAndSaveDocument(file);
+        System.out.println("Saved document with ID: " + doc.getId());
+
+        String fullText = extractContent(file);
+        System.out.println("Extracted text. Total Size: " + fullText.length());
+
+        int count = processAndVectorize(fullText, doc.getId());
+
+        return "Processing completed!" + count + " Parts were vectorized and saved.";
+    }
+
+    private Document createAndSaveDocument(MultipartFile file) throws IOException {
         Document doc = new Document();
         doc.setFileName(file.getOriginalFilename());
         doc.setUploadDate(LocalDateTime.now());
+        return documentRepository.save(doc);
+    }
 
-        doc =  documentRepository.save(doc);
-        Long realDocId = doc.getId();
-
-        System.out.println("Saved document with ID: " + realDocId);
-
+    private String extractContent(MultipartFile file) throws IOException{
         String fullText = pdfService.extractText(file);
 
         if (fullText == null || fullText.isEmpty()){
             throw new RuntimeException("The document is empty or could not be read.");
         }
+        return fullText;
+    }
 
-        System.out.println("Extracted text. Total Size: " + fullText.length());
-
-        List<String> chunks = splitText(fullText,1000);
-
+    private int processAndVectorize(String fullText, Long docId){
+        List<String> chunks = splitText(fullText, 1000);
         int count = 0;
-        for (String chunkText : chunks){
-            try{
-                String vectorString = geminiService.getEmbedding(chunkText);
-
-                documentChunkRepository.saveVector(chunkText, vectorString, realDocId);
-
+        for (String chunkText : chunks) {
+            try {
+                vectorizeChunk(chunkText, docId);
                 count++;
                 System.out.println("Processing chunk " + count + "/" + chunks.size());
-
                 Thread.sleep(1000);
-            }catch (Exception e){
-                System.out.println("Error processing chunk " + count + ": " + e.getMessage());
+            } catch (Exception e) {
+                System.out.println("Error processing chunk \" + count + \": \" + e.getMessage()");
             }
         }
+        return count;
+    }
 
-        documentRepository.save(doc);
-
-        return "Processing completed!" + count + " Parts were vectorized and saved.";
+    private void vectorizeChunk(String chunkText, Long docId){
+        String vectorString = geminiService.getEmbedding(chunkText);
+        documentChunkRepository.saveVector(chunkText, vectorString, docId);
     }
 
     private List<String> splitText(String text, int chunkSize) {
         List<String> chunks = new ArrayList<>();
         int length = text.length();
-        for (int i = 0; i < length; i += chunkSize) {
-            chunks.add(text.substring(i, Math.min(length, i + chunkSize)));
+        int start = 0;
+
+        while (start < length){
+            int end = Math.min(start + chunkSize, length);
+
+            if (end < length){
+                int lastSpace = text.substring(start, end).lastIndexOf(' ');
+
+                if (lastSpace > 0){
+                    end = start + lastSpace;
+                }
+
+            }
+            String chunk = text.substring(start, end).trim();
+
+            if (!chunk.isEmpty()){
+                chunks.add(chunk);
+            }
+
+            start = end + 1;
         }
         return chunks;
     }
