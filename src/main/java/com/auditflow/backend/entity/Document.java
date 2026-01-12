@@ -13,6 +13,7 @@ public class Document {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "filename", nullable = false)
     private String fileName;
 
     private LocalDateTime uploadDate;
