@@ -1,0 +1,22 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: auditflow_postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: auditflow_db
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
